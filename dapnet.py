@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-## parsing rss-feed to send news to dapnet rubric
+## parsing rss-feed to send message to dapnet rubric
 ##
 ## 20200311 do6uk
+## 20221026 do7aj
 
 from datetime import datetime
 from dateutil import tz
@@ -22,23 +23,23 @@ repl_chars = {"ä":"ae", "ö":"oe", "ü":"ue", "Ä":"Ae", "Ö":"Oe", "Ü":"Ue", 
 repl_words = {}
 
 # url to rss-feed
-rss_url = "http://server.tld/rssfeed.xml"
+rss_url = "INSERT_MOWAS_BBK_URL_HERE"
 
 # url to dapnet-core
-dapnet_url = "http://www.hampager.de:8080"
+dapnet_url = "http://www.hampager.de:8080/calls"
 # basic_auth
-dapnet_auth = ('#yourcallsign#','#yourkey#')
-# rubric-name like given at hampager.de
-dapnet_rub = 'null'
-# rubric-owner to set
-dapnet_owner = '#yourcallsign#'
+dapnet_auth = ('INSERT_CALLSIGN_HERE','INSERT_PASSWORD_HERE')
+# receiver-name like given at hampager.de
+dapnet_receiver = 'INSERT_CALLSIGN_HERE'
+# callsign-owner to set
+dapnet_owner = 'INSERT_CALLSIGN_HERE'
 
 # headline-message / if empty it will not be sent
 msg_headline = ""
-# after this news-number at rubric we will start to send
-msg_offset = 4
+# experimental, after this news-number at rubric we will start to send
+msg_offset = 0
 # how many messages we want to send
-msg_max = 1
+msg_max = 10
 
 
 ## MAIN CODE - do not edit below this point
@@ -74,14 +75,14 @@ if cli_args.verbose:
 	print(feed.feed)
 	print('\n<EOF>\n')
 
-feed_time = time.strptime(feed.feed.published, '%a, %d %b %Y %H:%M:%S %z')
+feed_time = time.strptime(feed.feed.updated, '%a, %d %b %Y %H:%M:%S %z')
 feed_humantime = time.strftime('%d.%m.%Y %H:%M:%S',feed_time)
 feed_ts = time.mktime(feed_time)
 
 if not cli_args.silent:
 	print('## parsing rss-feed')
 if cli_args.verbose:
-	print(feed.feed.generator, feed_humantime, feed_ts)
+	print(feed.updated, feed_humantime, feed_ts)
 
 if not cli_args.silent:
 	print('## parsing feed items')
@@ -104,7 +105,7 @@ else:
 
 for item in feed.entries:
 	newscount += 1
-	item_time = time.strptime(item.published, '%a, %d %b %Y %H:%M:%S %z')
+	item_time = time.strptime(item.updated, '%a, %d %b %Y %H:%M:%S %z')
 	item_humantime = time.strftime('%d.%m.%y %H:%M',item_time)
 	item_ts = time.mktime(item_time)
 	item_title = item.title
@@ -127,7 +128,7 @@ for item in feed.entries:
 		elif latest == latest_news and cli_args.force and not cli_args.silent:
 			print('## no fresh news, but will send anyway (--force)')
 
-	msg = '## NEWS-Distrikt H > {0} @ {1}'.format(item_title,item_humantime)
+	msg = '{0} @ {1}'.format(item_title,item_humantime)
 	mlen = len(msg)
 	if mlen <= 80:
 		## lassen wir so
@@ -137,11 +138,11 @@ for item in feed.entries:
 
 	if cli_args.verbose:
 		print('<{0:02d}> {1} ({2})'.format(newscount+msg_offset, msg, mlen))
-	msgjson = {"text": msg, "rubricName": dapnet_rub, "number": newscount+msg_offset, "ownerName": dapnet_owner}
+	msgjson = {"text": msg, "callSignNames": [dapnet_receiver], "transmitterGroupNames": ["dl-all"], "emergency": "false"}
 	dapnet_json.append(msgjson)
 
 	if not cli_args.local:
-		r_upload = requests.post(dapnet_url+'/news?rubricName='+dapnet_rub, auth = dapnet_auth, json = msgjson)
+		r_upload = requests.post(dapnet_url, auth = dapnet_auth, json = msgjson)
 		if not cli_args.silent:
 			print('<{0:02d}> {1} [{2}]'.format(newscount+msg_offset,msg,r_upload.status_code))
 		if r_upload.status_code == 201:
